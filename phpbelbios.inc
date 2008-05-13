@@ -20,14 +20,31 @@
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
 
+/**
+ * Tixway is the main class for PHP Belbios.
+ * It handles the XMLRPC calls as well as the pereparation of the various data.
+ * It also contains global helper methods for use in calls and data manipulation. 
+ **/
 class Tixway {
   private $parameters;
 
+  /**
+   * Creates a new instance of Tixway. Provide a tixway username and passord. Additional default parameters (such as a default city_id) vcan be provided.
+   * @param $user string a string containing the Tixway/Belbios B2B username
+   * @param $password string a string containing the Tixway/Belbios B2B paassword
+   * @param $parameters array. Optioannl array with default parameters
+   *
+   * Username and Password can be aquired by contacting Tixway at http://www.belbios.nl/b2bform.php
+   **/
   function __construct($user, $password, $parameters = array()) {
     $this->set_parameters($parameters);
     $this->set_parameters(array('user' => $user, 'password' => $password));
   }
 
+  /**
+   * Creates the complete URL, calls that, and parses the resulting XML. 
+   * @return a SimpleXML object containing the requested data. 
+   **/
   public function do_call() {
     $url = $this->build_url();
     dpr(TixwayUtil::urldecodeRFC3986($url));
@@ -36,6 +53,10 @@ class Tixway {
     return $xml;
   }
 
+  /**
+  * Builds a query URL from the base url. Optionally adds ports and other HTTP url options.
+  * Takes the parameters and turns them into a name=value string and adds that to tjhe URL.
+  */
   public function build_url() {
     $this->add_default_parameters();//@todo make config with param.
 
@@ -44,7 +65,12 @@ class Tixway {
     return $out;
   }
 
-  //@TODO: build in more and better fopen wrappers, such as curl support.
+  /**
+  * Calls the URL and returns the data from the query
+  * @TODO: build in more and better fopen wrappers, such as curl support, timeout errors and nbasic HTTP error handling.
+  * @param $url string A string with the entire URL that should be called for data.
+  * @return string the result from the call, usually a string containing XML, but could potentially be anything from a 404 page to an HTML page. 
+  */
   public function call_url($url) {
     $xml = '';
     if ($handle = @fopen($url,'r')) {
@@ -57,6 +83,11 @@ class Tixway {
     return $xml;
   }
 
+  /**
+   * Parses the XML using SimpleXML and puts theresulting records in an array for easier handling.
+   * @param $xml_string string containing the XML that must be parsed.
+   * @return an array containing the simpleXMLobjects of each found record. 
+   */
   public function parse_xml($xml_string) {
     $xml_data = array();//Make sure we always return an array.
     if (!empty($xml_string) && (substr($xml_string, 0, 1) == '<')) { //RAS returns 0, in case of no results.
@@ -72,20 +103,41 @@ class Tixway {
     return $xml_data;
   }
 
+  /**
+   * Adds a parameter to the set of parameters
+   * @param $name string the name of the parameter to be added, does not have to be urlencoded (or RFC3986) yet.
+   * @param $value string the value of the parameter to be added, does not have to be urlencoded (or RFC3986) yet.
+   * @return no return value;
+   **/
   public function set_parameter($name, $value) {
     $this->parameters[$name] = $value;
   }
-
+ 
+  /**
+   * Adds a range of parameters to the set of parameters
+   * @param $params array with key = name of the parameterand value is value of the parameter to be added, does not have to be urlencoded (or RFC3986) yet.
+   * @return no return value;
+   **/
   public function set_parameters($params = array()) {
     foreach ($params as $n => $v) {
       $this->set_parameter($n, $v);
     }
   }
-
+ 
+  /**
+   * Returns a single parameter
+   * @param $name string the name of the parameter where we wnat the value for. 
+   * @return the value of that parameter if set, else NULL;
+   **/
   public function get_parameter($name) {
     return $this->parameters[$name];
   }
-
+   
+  /**
+   * Returns all parameters
+   * @param $add_default set to FALSE to disable inclusion of so called default parameters (such as login-credentials)
+   * @return keyed array with all parameters where key = parameter name and value = value.;
+   **/ 
   public function get_parameters($add_default = TRUE) {
     if ($add_default) {
       $this->add_default_parameters();//@TODO: we prolly don't want to add these to the ->parameters var, but rather only add them to this very output.
@@ -93,6 +145,10 @@ class Tixway {
     return $this->parameters;
   }
 
+  /**
+   * Returns required, default parameters
+   * @return  keyed array with all required and hardcoded parameters where key = parameter name and value = value.;
+   **/
   public function get_default_parameters() {
     return array(
       'service' => 'query', //@TODO: replace with settable var.
@@ -100,6 +156,9 @@ class Tixway {
     );
   }
 
+  /**
+   * Sets the default parameteters.
+   **/
   public function add_default_parameters() {
     foreach ($this->get_default_parameters() as $n => $v) {
       $this->set_parameter($n, $v);
@@ -108,6 +167,7 @@ class Tixway {
 
   /**
    * Parses the http_url and rebuilds it into scheme://host/path with an option al port
+   * @returns string a normalised url, optional with port added.
    */
   public function get_normalized_http_url() {
     $parts = parse_url(TixwayData::http_url());
@@ -120,6 +180,7 @@ class Tixway {
 
   /**
    * builds the data one would send in a POST request
+   * @return string a name=value string where all chunks are urlencoded according to RFC3986
    */
   public function to_postdata() {
     $total = array();
@@ -137,6 +198,9 @@ class Tixway {
   }
 }
 
+/**
+ * TixwayQuery is used to query information in the Tixway webservice.
+ **/
 class TixwayQuery extends Tixway {
   private $parameters;
 
@@ -149,6 +213,14 @@ class TixwayQuery extends Tixway {
 
   }
 
+  /**
+  * Finds cities that fit within the filter
+  * @param filter array A keyed array where the key resembles the field and the value must match a record in the results.
+  * E.g. find_cities(array('cityName' => 'Nijmegen')) will return only the cities where the name equals Nijmegen.
+  * @todo: add support for non-city params, so that we can search for e.g. cities with a premiere. Or cities where a film is performed with a price under €2,- etceteras.
+  * @todo: allow reg-exps in values.
+  * @todo: allow options for OR and AND,somehow.
+  */
   public function find_cinemas($filter = array()) {
     $cinemas = array();
 
@@ -307,10 +379,16 @@ class TixwayQuery extends Tixway {
   }
 }
 
+/**
+ * TixwayTransaction allows one to do a transaction, such as a reservation in the tixway database.
+ **/
 class TixwayTransaction extends Tixway {
 
 }
 
+/**
+ * General Utility Class, contains methods such as RFC3986 urlen-/decoding
+ **/
 class TixwayUtil {
   public static function urlencodeRFC3986($string) {
     return str_replace('%7E', '~', rawurlencode($string));
@@ -321,6 +399,9 @@ class TixwayUtil {
   }
 }
 
+/**
+ * Data container. Holds data such as query-able fields, fields that can be used for filtering and error codes.
+ **/
 class TixwayData {
 
   public function http_url() {
