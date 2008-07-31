@@ -47,7 +47,6 @@ class Tixway {
    **/
   public function do_call() {
     $url = $this->build_url();
-    dpr(TixwayUtil::urldecodeRFC3986($url));
     $data = $this->call_url($url);
     $xml = $this->parse_xml($data);
     return $xml;
