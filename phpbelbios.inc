@@ -43,7 +43,8 @@ class Tixway {
 
   /**
    * Creates the complete URL, calls that, and parses the resulting XML. 
-   * @return a SimpleXML object containing the requested data. 
+   * @return a SimpleXML object containing the requested data.
+   * @TODO: build in some caching. Most probably we want to cache both the SimpleXML object and the raw HTML. The cache-key could be either the $url or an md5-hash of that URL.
    **/
   public function do_call() {
     $url = $this->build_url();
