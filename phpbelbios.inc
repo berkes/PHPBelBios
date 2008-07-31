@@ -297,6 +297,7 @@ class TixwayQuery extends Tixway {
     $this->set_parameters = $params;
     $output_fields  = array(
       'cinemaID',
+      'movieID',
       'movieName',
       'movieNameNormal',
       'movieDescription',//@TODO: preg_replace <br> with <br/>
